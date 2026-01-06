@@ -16,7 +16,7 @@ def publish_tasks(num_tasks: int):
     channel = connection.channel()
 
     # durable queue so messages survive broker restart
-    channel.queue_declare(queue=TASK_QUEUE, durable=True)
+    #channel.queue_declare(queue=TASK_QUEUE, durable=True)
 
     t0 = time.time()
     for task_id in range(num_tasks):

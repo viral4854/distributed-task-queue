@@ -83,3 +83,152 @@ g++ worker_sim.cpp -o worker_sim -lpthread
 Open multiple terminals and start workers:
 
 ./worker_sim
+
+UPDATE !!!!!!
+
+Retry & Dead Letter Queue (DLQ) Extension
+
+This update extends the existing distributed task queue with production-grade failure handling, including retries and a dead-letter queue.
+
+📌 What Was Added
+Retry Handling
+
+Tasks now include a retry_count field.
+
+On processing failure:
+
+The task is requeued with retry_count + 1.
+
+Retries are capped (MAX_RETRIES) to prevent infinite loops.
+
+Simulates real-world transient failure recovery.
+
+Dead Letter Queue (DLQ)
+
+Tasks that exceed the retry limit are routed to a Dead Letter Queue.
+
+Prevents poisoned messages from blocking the main queue.
+
+Enables post-mortem analysis of permanently failed tasks.
+
+Failure Simulation
+
+Controlled failure logic added to workers to validate retry and DLQ behavior.
+
+Confirms:
+
+Retry routing works correctly
+
+Tasks eventually land in DLQ after max attempts
+
+C++ Worker Simulator (Benchmarking)
+
+Added a lightweight C++ worker simulator for throughput testing.
+
+Used to benchmark queue performance independent of Python overhead.
+
+Result:
+
+10,000 tasks processed with 4 C++ workers in ~0.0007s
+
+~14.3 million tasks/sec (local benchmark)
+
+📂 New / Updated Files
+worker_retry_dlq.py     # Worker with retry + DLQ logic
+setup_queue.py          # Declares main queue, retry exchange, DLQ
+worker_sim.cpp          # C++ worker simulator (benchmarking)
+
+Prerequisites
+
+RabbitMQ running locally
+
+Python 3.10+
+
+Python dependencies:
+
+pip install -r requirements.txt
+
+
+(Optional) C++ compiler (MinGW / g++)
+
+▶How to Run (Step-by-Step)
+1️ Start RabbitMQ
+
+Make sure RabbitMQ is running and listening on port 5672.
+
+You can verify:
+
+netstat -ano | findstr :5672
+
+2️ Setup Queues (IMPORTANT)
+
+This must be run once or whenever queues are reset.
+
+python setup_queue.py
+
+
+This creates:
+
+Main task queue
+
+Retry exchange
+
+Dead Letter Queue (DLQ)
+
+3️ Start the Worker (Retry + DLQ Enabled)
+python worker_retry_dlq.py
+
+
+You should see logs like:
+
+RETRY -> id=4270 attempt=1
+DLQ -> id=4270 exceeded max retries
+
+4️ Publish Tasks
+python producer.py --num-tasks 10000
+
+
+Tasks will:
+
+Be processed
+
+Retry on failure
+
+Move to DLQ if retries exceed limit
+
+5️ (Optional) Run C++ Worker Simulator
+
+Compile:
+
+g++ worker_sim.cpp -O2 -o worker_sim
+
+
+Run:
+
+./worker_sim
+
+
+Example output:
+
+Processed 10000 tasks with 4 C++ workers in 0.0006956s
+
+🧪 How to Verify It’s Working
+
+Retry logs appear → retry mechanism active
+
+DLQ fills up → retry cap enforced
+
+No infinite loops → poison messages isolated
+
+Throughput benchmark completes → queue is stable under load
+
+⚠️ Notes
+
+Queue arguments must match exactly once declared
+(RabbitMQ will reject mismatched redeclarations).
+
+If you change DLQ or retry settings:
+
+Delete queues from RabbitMQ UI
+
+Re-run setup_queue.py
